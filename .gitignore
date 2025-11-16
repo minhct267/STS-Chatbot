@@ -1,0 +1,27 @@
+# Python cache / build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE / editor settings
+.vscode/
+.idea/
+
+# Environment & secrets
+.env
+.env.*
+
+# Local data stores
+chroma_db/
+
+# Logs
+logs/
+
+
