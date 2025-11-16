@@ -10,6 +10,7 @@ from .config import LOG_DIR
 
 
 INTERACTION_LOG_PATH = LOG_DIR / "interactions.jsonl"
+FEEDBACK_LOG_PATH = LOG_DIR / "feedback.jsonl"
 
 
 @dataclass
@@ -35,6 +36,16 @@ class InteractionLogRecord:
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class FeedbackLogRecord:
+    timestamp: str
+    session_id: str
+    question: str
+    answer: str
+    feedback: str  # e.g. "up" | "down"
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
 def _ensure_log_dir() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -52,6 +63,17 @@ def log_interaction(record: InteractionLogRecord) -> None:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except Exception as exc:  # noqa: BLE001
         print(f"[WARN] Failed to write interaction log: {exc}")
+
+
+def log_feedback(record: FeedbackLogRecord) -> None:
+    """Write one feedback record to the JSONL feedback log file."""
+    try:
+        _ensure_log_dir()
+        payload = asdict(record)
+        with FEEDBACK_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[WARN] Failed to write feedback log: {exc}")
 
 
 def build_interaction_record(
@@ -96,6 +118,26 @@ def build_interaction_record(
         retriever_k=retriever_k,
         max_context_chunks=max_context_chunks,
         retrieved_docs=retrieved_logs,
+        extra=extra or {},
+    )
+
+
+def build_feedback_record(
+    *,
+    session_id: str,
+    question: str,
+    answer: str,
+    feedback: str,
+    extra: Optional[Dict[str, Any]] = None,
+) -> FeedbackLogRecord:
+    """Build a FeedbackLogRecord from raw data."""
+    ts = datetime.now(timezone.utc).isoformat()
+    return FeedbackLogRecord(
+        timestamp=ts,
+        session_id=session_id,
+        question=question,
+        answer=answer,
+        feedback=feedback,
         extra=extra or {},
     )
 

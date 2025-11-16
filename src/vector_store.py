@@ -7,7 +7,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from .config import CHROMA_COLLECTION_NAME, CHROMA_DIR, EMBEDDING_MODEL_NAME
+from .config import (CHROMA_COLLECTION_NAME, CHROMA_DIR, EMBEDDING_DEVICE,
+                     EMBEDDING_MODEL_NAME)
 
 
 def get_embeddings() -> HuggingFaceEmbeddings:
@@ -18,7 +19,7 @@ def get_embeddings() -> HuggingFaceEmbeddings:
     """
     return HuggingFaceEmbeddings(
         model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": "cpu"},  # switch to "cuda" if you have a GPU
+        model_kwargs={"device": EMBEDDING_DEVICE},
         encode_kwargs={"normalize_embeddings": True},
     )
 

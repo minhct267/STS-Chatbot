@@ -43,5 +43,7 @@ streamlit run src/app.py
 
 - All models (LLM and embeddings) run locally via Ollama and HuggingFace to minimise paid API usage.
 - LangChain is used as the baseline RAG framework; LangGraph can be integrated later for self-evaluation and self-improvement workflows.
+- By default, embeddings and the reranker run on GPU (`device="cuda"`). You can force CPU by setting env vars
+  `STS_CHATBOT_EMBEDDING_DEVICE=cpu` and/or `STS_CHATBOT_RERANKER_DEVICE=cpu` before running the app.
 
 

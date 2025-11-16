@@ -17,6 +17,8 @@ CHROMA_COLLECTION_NAME = "sts_chatbot_docs"
 
 # HuggingFace embedding model (BGE, multilingual, good for search)
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
+# Device for embeddings: default to GPU ("cuda") if available
+EMBEDDING_DEVICE = os.environ.get("STS_CHATBOT_EMBEDDING_DEVICE", "cuda")
 
 # LLM model name served via Ollama (can be changed here or via env var).
 # Default is gemma3:12b for better quality; on weaker machines set STS_CHATBOT_OLLAMA_MODEL=gemma3:4b.
@@ -42,8 +44,8 @@ RERANKER_MODEL_NAME = "BAAI/bge-reranker-base"
 # Maximum number of chunks after rerank that will be used as context (default = MAX_CONTEXT_CHUNKS)
 RERANKER_TOP_K = MAX_CONTEXT_CHUNKS
 
-# Device to run the reranker on: "cpu" (safe on all machines) or "cuda" if you have a GPU
-RERANKER_DEVICE = os.environ.get("STS_CHATBOT_RERANKER_DEVICE", "cpu")
+# Device to run the reranker on: "cpu" or "cuda" (default to GPU)
+RERANKER_DEVICE = os.environ.get("STS_CHATBOT_RERANKER_DEVICE", "cuda")
 
 
 # LLM parameters

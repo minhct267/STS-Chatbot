@@ -22,7 +22,9 @@ from src.config import (  # type: ignore  # noqa: E402
     RETRIEVER_K,
 )
 from src.logging_utils import (  # type: ignore  # noqa: E402
+    build_feedback_record,
     build_interaction_record,
+    log_feedback,
     log_interaction,
 )
 from src.rag_chain import answer_question  # type: ignore  # noqa: E402
@@ -39,6 +41,9 @@ def init_session_state() -> None:
         }
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid4())
+    if "last_interaction" not in st.session_state:
+        # Stores metadata for the last assistant answer, used for feedback logging.
+        st.session_state["last_interaction"] = None
 
 
 def append_message(role: str, content: str) -> None:
@@ -106,6 +111,46 @@ def render_sidebar() -> Dict[str, object]:
         )
 
     return settings
+
+
+def render_feedback_controls() -> None:
+    """Render thumbs up/down feedback buttons for the last answer."""
+    last = st.session_state.get("last_interaction")
+    if not last:
+        return
+
+    feedback = last.get("feedback")
+    if feedback == "up":
+        st.caption("✅ Feedback recorded: marked as helpful.")
+        return
+    if feedback == "down":
+        st.caption("✅ Feedback recorded: marked as not helpful.")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("👍 Helpful", key="feedback_up"):
+            _handle_feedback("up", last)
+    with col2:
+        if st.button("👎 Not helpful", key="feedback_down"):
+            _handle_feedback("down", last)
+
+
+def _handle_feedback(feedback_value: str, last: Dict[str, object]) -> None:
+    """Handle feedback click: log feedback and update session state."""
+    try:
+        record = build_feedback_record(
+            session_id=st.session_state["session_id"],
+            question=str(last["question"]),
+            answer=str(last["answer"]),
+            feedback=feedback_value,
+            extra={"app_version": "mvp2"},
+        )
+        log_feedback(record)
+        last["feedback"] = feedback_value
+        st.session_state["last_interaction"] = last
+    except Exception as exc:  # noqa: BLE001
+        print(f"[WARN] Failed to log feedback: {exc}")
 
 
 def main() -> None:
@@ -176,6 +221,16 @@ def main() -> None:
             print(f"[WARN] Failed to log interaction in app: {exc}")
 
         append_message("assistant", answer)
+
+        # Store metadata for feedback on the last interaction
+        st.session_state["last_interaction"] = {
+            "question": prompt,
+            "answer": answer,
+            "feedback": None,
+        }
+
+    # Feedback controls for last assistant answer
+    render_feedback_controls()
 
 
 if __name__ == "__main__":
