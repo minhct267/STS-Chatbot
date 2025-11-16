@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from .config import LOG_DIR
 
-
 INTERACTION_LOG_PATH = LOG_DIR / "interactions.jsonl"
 FEEDBACK_LOG_PATH = LOG_DIR / "feedback.jsonl"
 
@@ -42,7 +41,7 @@ class FeedbackLogRecord:
     session_id: str
     question: str
     answer: str
-    feedback: str  # e.g. "up" | "down"
+    feedback: str
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -51,11 +50,6 @@ def _ensure_log_dir() -> None:
 
 
 def log_interaction(record: InteractionLogRecord) -> None:
-    """Write one interaction to the JSONL log file.
-
-    This function avoids raising errors so it won't break the user experience;
-    on failure it only prints a warning to stdout.
-    """
     try:
         _ensure_log_dir()
         payload = asdict(record)
@@ -66,7 +60,6 @@ def log_interaction(record: InteractionLogRecord) -> None:
 
 
 def log_feedback(record: FeedbackLogRecord) -> None:
-    """Write one feedback record to the JSONL feedback log file."""
     try:
         _ensure_log_dir()
         payload = asdict(record)
@@ -89,7 +82,6 @@ def build_interaction_record(
     source_docs: List[Any],
     extra: Optional[Dict[str, Any]] = None,
 ) -> InteractionLogRecord:
-    """Build an InteractionLogRecord from raw data."""
     ts = datetime.now(timezone.utc).isoformat()
 
     retrieved_logs: List[RetrievedDocLog] = []
@@ -130,7 +122,6 @@ def build_feedback_record(
     feedback: str,
     extra: Optional[Dict[str, Any]] = None,
 ) -> FeedbackLogRecord:
-    """Build a FeedbackLogRecord from raw data."""
     ts = datetime.now(timezone.utc).isoformat()
     return FeedbackLogRecord(
         timestamp=ts,
@@ -140,5 +131,3 @@ def build_feedback_record(
         feedback=feedback,
         extra=extra or {},
     )
-
-

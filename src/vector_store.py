@@ -12,14 +12,9 @@ from .config import (CHROMA_COLLECTION_NAME, CHROMA_DIR, EMBEDDING_DEVICE,
 
 
 def get_embeddings() -> HuggingFaceEmbeddings:
-    """Initialise HuggingFaceEmbeddings with the BGE-m3 model.
-
-    The model is loaded from HuggingFace Hub (free) and runs locally via
-    sentence-transformers + torch.
-    """
     return HuggingFaceEmbeddings(
         model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": EMBEDDING_DEVICE},
+        model_kwargs={"device": "cuda"},
         encode_kwargs={"normalize_embeddings": True},
     )
 
@@ -28,7 +23,6 @@ def get_vector_store(
     persist_directory: Path | None = None,
     collection_name: str | None = None,
 ) -> Chroma:
-    """Load Chroma vector store persisted on disk."""
     persist_directory = persist_directory or CHROMA_DIR
     collection_name = collection_name or CHROMA_COLLECTION_NAME
 
@@ -52,23 +46,14 @@ def rebuild_vector_store_from_documents(
     persist_directory: Path | None = None,
     collection_name: str | None = None,
 ) -> Chroma:
-    """Rebuild the entire vector store from a list of documents.
-
-    This function deletes the existing Chroma directory (if any) and builds
-    a fresh index from the given documents.
-    """
     persist_directory = persist_directory or CHROMA_DIR
     collection_name = collection_name or CHROMA_COLLECTION_NAME
-
     persist_directory.mkdir(parents=True, exist_ok=True)
 
-    # Remove old data (if any) by deleting the whole directory.
-    # Chroma will recreate the required structure.
     for child in persist_directory.iterdir():
         if child.is_file():
             child.unlink()
         else:
-            # Recursively delete subdirectories
             for sub in child.rglob("*"):
                 if sub.is_file():
                     sub.unlink()
@@ -83,5 +68,3 @@ def rebuild_vector_store_from_documents(
         persist_directory=str(persist_directory),
     )
     return vectorstore
-
-

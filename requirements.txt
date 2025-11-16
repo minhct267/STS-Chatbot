@@ -1,16 +1,7 @@
 langchain
-langchain-core
-langchain-text-splitters
 langchain-community
 langchain-ollama
 langchain-chroma
 langchain-huggingface
-chromadb
-pymupdf
 sentence-transformers
-torch
 streamlit
-python-dotenv
-tqdm
-
-

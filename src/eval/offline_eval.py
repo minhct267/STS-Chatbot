@@ -13,7 +13,6 @@ from src.logging_utils import INTERACTION_LOG_PATH
 
 EVAL_RESULTS_PATH = LOG_DIR / "eval_results.jsonl"
 
-
 @dataclass
 class EvalResult:
     log_index: int
@@ -98,7 +97,6 @@ def parse_eval_json(text: str) -> Dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # Try to locate the first JSON-looking substring in the text
         start = text.find("{")
         end = text.rfind("}")
         if start != -1 and end != -1 and end > start:
@@ -208,7 +206,7 @@ def main() -> None:
                 f"[{processed}] correctness={result.correctness_score} "
                 f"grounded={result.grounded}",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"[WARN] Error when evaluating log index {idx}: {exc}")
             continue
 
@@ -220,5 +218,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

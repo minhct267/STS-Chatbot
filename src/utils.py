@@ -7,7 +7,6 @@ from typing import Iterator
 
 @contextmanager
 def time_block(label: str) -> Iterator[None]:
-    """Context manager to measure execution time for a code block."""
     start = time.time()
     try:
         yield
@@ -15,5 +14,3 @@ def time_block(label: str) -> Iterator[None]:
         end = time.time()
         elapsed = end - start
         print(f"[TIMER] {label}: {elapsed:.2f}s")
-
-

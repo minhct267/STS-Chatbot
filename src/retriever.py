@@ -6,25 +6,17 @@ from typing import List
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
 
-from .config import (
-    MAX_CONTEXT_CHUNKS,
-    RETRIEVER_K,
-    RERANKER_DEVICE,
-    RERANKER_MODEL_NAME,
-    RERANKER_TOP_K,
-    USE_RERANKER,
-)
+from .config import (MAX_CONTEXT_CHUNKS, RERANKER_DEVICE, RERANKER_MODEL_NAME,
+                     RERANKER_TOP_K, RETRIEVER_K, USE_RERANKER)
 from .vector_store import get_vector_store
 
 
 @lru_cache(maxsize=1)
 def _get_vectorstore():
-    """Cache the vector store to avoid re-creating it (saves time & memory)."""
     return get_vector_store()
 
 
 def get_base_retriever():
-    """Base retriever from Chroma using similarity search."""
     vectorstore = _get_vectorstore()
     return vectorstore.as_retriever(
         search_type="similarity",
@@ -34,12 +26,7 @@ def get_base_retriever():
 
 @lru_cache(maxsize=1)
 def _get_reranker_model() -> CrossEncoder:
-    """Create and cache the bge-reranker (cross-encoder) model.
-
-    We wrap it in lru_cache to ensure the model is loaded only once per process,
-    avoiding multiple copies in RAM.
-    """
-    model = CrossEncoder(RERANKER_MODEL_NAME, device=RERANKER_DEVICE)
+    model = CrossEncoder(RERANKER_MODEL_NAME, device="cuda")
     return model
 
 
@@ -48,7 +35,6 @@ def _rerank_documents(
     docs: List[Document],
     top_k: int | None = None,
 ) -> List[Document]:
-    """Rerank the given Documents by relevance to the query using bge-reranker."""
     if not docs:
         return []
 
@@ -69,11 +55,6 @@ def retrieve_documents(
     query: str,
     use_reranker: bool | None = None,
 ) -> List[Document]:
-    """High-level helper to retrieve relevant documents for a query.
-
-    - Step 1: use the base retriever (Chroma similarity search) to get k docs.
-    - Step 2 (optional): rerank them with bge-reranker and keep the top_k docs.
-    """
     use_reranker = USE_RERANKER if use_reranker is None else use_reranker
 
     retriever = get_base_retriever()
@@ -83,5 +64,3 @@ def retrieve_documents(
         docs = _rerank_documents(query, docs)
 
     return docs
-
-

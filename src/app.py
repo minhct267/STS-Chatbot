@@ -7,27 +7,16 @@ from uuid import uuid4
 
 import streamlit as st
 
-# Ensure project root is on sys.path when running `streamlit run src/app.py`
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.config import (  # type: ignore  # noqa: E402
-    APP_TITLE,
-    AVAILABLE_OLLAMA_MODELS,
-    DEFAULT_TEMPERATURE,
-    MAX_CONTEXT_CHUNKS,
-    MAX_HISTORY_MESSAGES,
-    OLLAMA_MODEL_NAME,
-    RETRIEVER_K,
-)
-from src.logging_utils import (  # type: ignore  # noqa: E402
-    build_feedback_record,
-    build_interaction_record,
-    log_feedback,
-    log_interaction,
-)
-from src.rag_chain import answer_question  # type: ignore  # noqa: E402
+from src.config import (APP_TITLE, AVAILABLE_OLLAMA_MODELS,
+                        DEFAULT_TEMPERATURE, MAX_CONTEXT_CHUNKS,
+                        MAX_HISTORY_MESSAGES, OLLAMA_MODEL_NAME, RETRIEVER_K)
+from src.logging_utils import (build_feedback_record, build_interaction_record,
+                               log_feedback, log_interaction)
+from src.rag_chain import answer_question
 
 
 def init_session_state() -> None:
@@ -42,16 +31,13 @@ def init_session_state() -> None:
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid4())
     if "last_interaction" not in st.session_state:
-        # Stores metadata for the last assistant answer, used for feedback logging.
         st.session_state["last_interaction"] = None
 
 
 def append_message(role: str, content: str) -> None:
-    """Append a message to session_state and trim history if it grows too large (protect memory)."""
     messages: List[Dict[str, str]] = st.session_state["messages"]
     messages.append({"role": role, "content": content})
 
-    # Keep at most ~2x the number of messages used for history to avoid bloating session_state
     max_len = MAX_HISTORY_MESSAGES * 2
     if len(messages) > max_len:
         overflow = len(messages) - max_len
@@ -59,7 +45,6 @@ def append_message(role: str, content: str) -> None:
 
 
 def get_chat_history_text() -> str:
-    """Format the most recent messages as text to feed into the prompt (conversational context)."""
     messages: List[Dict[str, str]] = st.session_state["messages"]
     recent = messages[-MAX_HISTORY_MESSAGES:]
     lines: List[str] = []
@@ -70,7 +55,6 @@ def get_chat_history_text() -> str:
 
 
 def render_sidebar() -> Dict[str, object]:
-    """Sidebar for configuring model, reranker and temperature."""
     settings = st.session_state["settings"]
 
     with st.sidebar:
@@ -114,7 +98,6 @@ def render_sidebar() -> Dict[str, object]:
 
 
 def render_feedback_controls() -> None:
-    """Render thumbs up/down feedback buttons for the last answer."""
     last = st.session_state.get("last_interaction")
     if not last:
         return
@@ -137,7 +120,6 @@ def render_feedback_controls() -> None:
 
 
 def _handle_feedback(feedback_value: str, last: Dict[str, object]) -> None:
-    """Handle feedback click: log feedback and update session state."""
     try:
         record = build_feedback_record(
             session_id=st.session_state["session_id"],
@@ -149,7 +131,7 @@ def _handle_feedback(feedback_value: str, last: Dict[str, object]) -> None:
         log_feedback(record)
         last["feedback"] = feedback_value
         st.session_state["last_interaction"] = last
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"[WARN] Failed to log feedback: {exc}")
 
 
@@ -160,21 +142,17 @@ def main() -> None:
     init_session_state()
     settings = render_sidebar()
 
-    # Render chat history
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Chat input
     if prompt := st.chat_input("Ask a question about the documents in the data/ folder..."):
-        # Show user message
         append_message("user", prompt)
         with st.chat_message("user"):
             st.markdown(prompt)
 
         chat_history_text = get_chat_history_text()
 
-        # Call RAG to answer
         with st.chat_message("assistant"):
             with st.spinner("Retrieving knowledge and generating answer..."):
                 result = answer_question(
@@ -200,7 +178,6 @@ def main() -> None:
                             st.markdown(f"**{meta}**")
                             st.markdown(doc.page_content)
 
-        # Log interaction (does not affect UX if logging fails)
         try:
             record = build_interaction_record(
                 session_id=st.session_state["session_id"],
@@ -217,23 +194,19 @@ def main() -> None:
                 },
             )
             log_interaction(record)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"[WARN] Failed to log interaction in app: {exc}")
 
         append_message("assistant", answer)
 
-        # Store metadata for feedback on the last interaction
         st.session_state["last_interaction"] = {
             "question": prompt,
             "answer": answer,
             "feedback": None,
         }
 
-    # Feedback controls for last assistant answer
     render_feedback_controls()
 
 
 if __name__ == "__main__":
     main()
-
-
