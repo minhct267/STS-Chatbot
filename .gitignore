@@ -19,9 +19,7 @@ venv/
 .env.*
 
 # Local data stores
-chroma_db/
+# chroma_db/
 
 # Logs
 logs/
-
-
