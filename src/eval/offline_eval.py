@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from langchain_groq import ChatGroq
 
-from src.config import LOG_DIR, OLLAMA_MODEL_NAME
+from src.config import LOG_DIR, GROQ_MODEL_NAME
 from src.logging_utils import INTERACTION_LOG_PATH
 
 EVAL_RESULTS_PATH = LOG_DIR / "eval_results.jsonl"
@@ -177,7 +177,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         type=str,
-        default=OLLAMA_MODEL_NAME,
+        default=GROQ_MODEL_NAME,
         help="Groq model name to use for self-eval (default: same as chat model).",
     )
     args = parser.parse_args()

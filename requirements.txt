@@ -3,8 +3,11 @@ langchain-community
 langchain-ollama
 langchain-chroma
 langchain-huggingface
+langchain-groq
+langchain-astradb
+langchain-openai
+langchain-qdrant
 sentence-transformers
 streamlit
-langchain-groq
 python-dotenv
 pymupdf

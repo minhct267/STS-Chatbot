@@ -18,23 +18,50 @@ CHROMA_DIR = BASE_DIR / "chroma_db"
 # Directory for logs
 LOG_DIR = BASE_DIR / "logs"
 
+# LLM providers
+AVAILABLE_LLM_PROVIDERS = ["groq", "ollama"]
+DEFAULT_LLM_PROVIDER = os.environ.get("STS_CHATBOT_LLM_PROVIDER", "groq")
+
 # Collection name in Chroma
 CHROMA_COLLECTION_NAME = "sts_chatbot_docs"
 
 # HuggingFace embedding model (BGE, multilingual, good for search)
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
 
-# GPU if available
-EMBEDDING_DEVICE = os.environ.get("STS_CHATBOT_EMBEDDING_DEVICE", "cuda")
-RERANKER_DEVICE = os.environ.get("STS_CHATBOT_RERANKER_DEVICE", "cuda")
+# Device selection (CUDA if available, else CPU), overridable via env vars
+def _auto_device() -> str:
+    try:
+        import torch  # type: ignore
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
+
+DEFAULT_DEVICE = _auto_device()
+EMBEDDING_DEVICE = os.environ.get("STS_CHATBOT_EMBEDDING_DEVICE", DEFAULT_DEVICE)
+RERANKER_DEVICE = os.environ.get("STS_CHATBOT_RERANKER_DEVICE", DEFAULT_DEVICE)
 
 # LLM model served via Groq
 # You can override this by setting STS_CHATBOT_GROQ_MODEL in the environment.
 GROQ_MODEL_NAME = os.environ.get("STS_CHATBOT_GROQ_MODEL", "llama-3.1-8b-instant")
 
-# Backwards-compatible aliases used elsewhere in the app (e.g. sidebar model picker).
-OLLAMA_MODEL_NAME = GROQ_MODEL_NAME
-AVAILABLE_OLLAMA_MODELS = [GROQ_MODEL_NAME]
+# Available Groq models
+AVAILABLE_GROQ_MODELS = [
+    "llama-3.1-8b-instant",
+    "meta-llama/llama-prompt-guard-2-86m",
+    "moonshotai/kimi-k2-instruct-0905",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3-32b",
+]
+
+# Ollama models (used when switching provider to Ollama)
+OLLAMA_MODEL_NAME = os.environ.get("STS_CHATBOT_OLLAMA_MODEL", "llama3.1:8b")
+AVAILABLE_OLLAMA_MODELS = [
+    "llama3.1:8b",
+    "gemma3:4b",
+    "llava:13b",
+    "qwen3:32b",
+    "gpt-oss:120b",
+]
 
 # Chunking parameters
 CHUNK_SIZE = 1500
@@ -58,7 +85,7 @@ MAX_CONTEXT_CHUNKS = 8
 MIN_RELEVANCE_SCORE_FOR_CONTEXT = 0.3
 
 # Reranker
-USE_RERANKER = True
+USE_RERANKER = False
 RERANKER_MODEL_NAME = "BAAI/bge-reranker-base"
 
 # Maximum number of chunks after rerank

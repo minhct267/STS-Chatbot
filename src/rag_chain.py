@@ -5,11 +5,13 @@ from typing import Any, Dict, List
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
 
 from .config import (
     DEFAULT_TEMPERATURE,
     MAX_CONTEXT_CHUNKS,
     MIN_RELEVANCE_SCORE_FOR_CONTEXT,
+    GROQ_MODEL_NAME,
     OLLAMA_MODEL_NAME,
 )
 from .prompt import get_general_chat_prompt_template, get_rag_prompt_template
@@ -28,16 +30,32 @@ def _format_docs(docs: List[Document]) -> str:
     return "\n\n".join(lines)
 
 
+def _create_llm(
+    provider: str | None,
+    model_name: str | None,
+    temperature: float | None,
+) -> Any:
+    temp = DEFAULT_TEMPERATURE if temperature is None else temperature
+    provider_normalised = (provider or "groq").strip().lower()
+    if provider_normalised == "ollama":
+        return ChatOllama(
+            model=model_name or OLLAMA_MODEL_NAME,
+            temperature=temp,
+        )
+    return ChatGroq(
+        model=model_name or GROQ_MODEL_NAME,
+        temperature=temp,
+    )
+
+
 def get_rag_chain(
     use_reranker: bool = True,
     model_name: str | None = None,
     temperature: float | None = None,
+    provider: str | None = None,
 ) -> Any:
     prompt = get_rag_prompt_template()
-    llm = ChatGroq(
-        model=model_name or OLLAMA_MODEL_NAME,
-        temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
-    )
+    llm = _create_llm(provider, model_name, temperature)
 
     rag_chain = (
         prompt
@@ -53,6 +71,7 @@ def answer_question(
     use_reranker: bool = True,
     model_name: str | None = None,
     temperature: float | None = None,
+    provider: str | None = None,
     chat_history: str | None = None,
 ) -> Dict[str, Any]:
     """Answer a user question, with intelligent fallback when retrieval is weak.
@@ -82,10 +101,7 @@ def answer_question(
         max_score is None or max_score >= MIN_RELEVANCE_SCORE_FOR_CONTEXT
     )
 
-    llm = ChatGroq(
-        model=model_name or OLLAMA_MODEL_NAME,
-        temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
-    )
+    llm = _create_llm(provider, model_name, temperature)
 
     if has_reliable_context:
         # RAG path: we have reasonably relevant documents, so we build context

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+import re
 from typing import Dict, List
 from uuid import uuid4
 
@@ -12,9 +13,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.config import (APP_TITLE, AVAILABLE_OLLAMA_MODELS,
+from src.config import (APP_TITLE, AVAILABLE_GROQ_MODELS,
+                        AVAILABLE_OLLAMA_MODELS, DEFAULT_LLM_PROVIDER,
                         DEFAULT_TEMPERATURE, MAX_CONTEXT_CHUNKS,
-                        MAX_HISTORY_MESSAGES, OLLAMA_MODEL_NAME, RETRIEVER_K)
+                        MAX_HISTORY_MESSAGES, GROQ_MODEL_NAME,
+                        OLLAMA_MODEL_NAME, RETRIEVER_K)
 from src.logging_utils import (build_feedback_record, build_interaction_record,
                                log_feedback, log_interaction)
 from src.rag_chain import answer_question
@@ -42,9 +45,12 @@ def init_session_state() -> None:
     if "messages" not in st.session_state:
         st.session_state["messages"]: List[Dict[str, str]] = []
     if "settings" not in st.session_state:
+        default_provider = (DEFAULT_LLM_PROVIDER or "groq").strip().lower()
+        default_model = GROQ_MODEL_NAME if default_provider == "groq" else OLLAMA_MODEL_NAME
         st.session_state["settings"] = {
-            "model_name": OLLAMA_MODEL_NAME,
-            "use_reranker": True,
+            "provider": default_provider,
+            "model_name": default_model,
+            "use_reranker": False,
             "temperature": DEFAULT_TEMPERATURE,
         }
     if "session_id" not in st.session_state:
@@ -76,37 +82,52 @@ def get_chat_history_text() -> str:
 def render_sidebar() -> Dict[str, object]:
     settings = st.session_state["settings"]
 
-    with st.sidebar:
-        st.subheader("Settings")
-
-        # Ollama model
+    header_left, header_right = st.columns([8, 2])
+    with header_right:
         try:
-            default_index = AVAILABLE_OLLAMA_MODELS.index(settings["model_name"])
+            container = st.popover("⚙️ Settings")
+        except Exception:
+            container = st.expander("⚙️ Settings", expanded=False)
+
+    with container:
+        # LLM provider
+        provider_display = "Groq" if settings.get("provider", "groq") == "groq" else "Ollama"
+        provider_display = st.selectbox("LLM provider", ["Groq", "Ollama"], index=0 if provider_display == "Groq" else 1)
+        provider = "groq" if provider_display == "Groq" else "ollama"
+
+        # Model list depends on provider
+        if provider == "groq":
+            options = AVAILABLE_GROQ_MODELS
+            label = "Groq model"
+        else:
+            options = AVAILABLE_OLLAMA_MODELS
+            label = "Ollama model"
+        try:
+            default_index = options.index(settings.get("model_name", options[0]))
         except ValueError:
             default_index = 0
-        model_name = st.selectbox(
-            "Ollama model",
-            AVAILABLE_OLLAMA_MODELS,
-            index=default_index,
-        )
+        model_name = st.selectbox(label, options, index=default_index)
 
-        # Reranker
+        # Reranker - tickbox
         use_reranker = st.checkbox(
-            "Use BGE reranker (higher accuracy, slightly slower)",
-            value=bool(settings.get("use_reranker", True)),
+            "BGE reranker",
+            value=bool(settings.get("use_reranker", False)),
+            help="Higher accuracy, slightly slower",
         )
 
-        # Temperature
+        # Temperature - sliding
         temperature = st.slider(
-            "Temperature (0 = very conservative, 1 = more creative)",
+            "Temperature",
             min_value=0.0,
             max_value=1.0,
             value=float(settings.get("temperature", DEFAULT_TEMPERATURE)),
             step=0.05,
+            help="0 = conservative, 1 = more creative",
         )
 
         settings.update(
             {
+                "provider": provider,
                 "model_name": model_name,
                 "use_reranker": use_reranker,
                 "temperature": temperature,
@@ -114,6 +135,22 @@ def render_sidebar() -> Dict[str, object]:
         )
 
     return settings
+
+
+def _strip_reasoning_text(text: str) -> str:
+    """Remove explicit chain-of-thought / thinking traces from model outputs.
+
+    This targets common patterns like <think>...</think> and fenced blocks
+    ```think ... ``` or ```thinking ... ```. If no patterns are found, the
+    original text is returned unchanged.
+    """
+    if not isinstance(text, str) or not text:
+        return text
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"```(?:think|thinking)[\s\S]*?```", "", cleaned, flags=re.IGNORECASE)
+    # Trim leftover excessive whitespace
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or text
 
 
 def render_feedback_controls() -> None:
@@ -129,12 +166,12 @@ def render_feedback_controls() -> None:
         st.caption("✅ Feedback recorded: marked as not helpful.")
         return
 
-    col1, col2 = st.columns(2)
+    spacer, col1, col2 = st.columns([20, 1, 1])
     with col1:
-        if st.button("👍 Helpful", key="feedback_up"):
+        if st.button("👍", key="feedback_up"):
             _handle_feedback("up", last)
     with col2:
-        if st.button("👎 Not helpful", key="feedback_down"):
+        if st.button("👎", key="feedback_down"):
             _handle_feedback("down", last)
 
 
@@ -155,7 +192,7 @@ def _handle_feedback(feedback_value: str, last: Dict[str, object]) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="💬", layout="wide")
+    st.set_page_config(page_title=APP_TITLE, page_icon="💬", layout="wide", initial_sidebar_state="collapsed")
     st.title(APP_TITLE)
 
     # Ensure Groq API key is available to ChatGroq instances.
@@ -168,7 +205,7 @@ def main() -> None:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Ask a question about the documents in the data/ folder..."):
+    if prompt := st.chat_input("Ask anything"):
         append_message("user", prompt)
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -176,29 +213,21 @@ def main() -> None:
         chat_history_text = get_chat_history_text()
 
         with st.chat_message("assistant"):
-            with st.spinner("Retrieving knowledge and generating answer..."):
+            with st.spinner("Thinking..."):
                 result = answer_question(
                     prompt,
                     use_reranker=bool(settings["use_reranker"]),
+                    provider=str(settings.get("provider", "groq")),
                     model_name=str(settings["model_name"]),
                     temperature=float(settings["temperature"]),
                     chat_history=chat_history_text,
                 )
-                answer = result["answer"]
+                answer = _strip_reasoning_text(result["answer"])
                 source_docs = result["source_documents"]
 
                 st.markdown(answer)
 
-                if source_docs:
-                    with st.expander("References (context used)"):
-                        for idx, doc in enumerate(source_docs, start=1):
-                            source = doc.metadata.get("source", "unknown")
-                            page = doc.metadata.get("page")
-                            meta = f"[{idx}] {source}"
-                            if page is not None:
-                                meta += f" – page {page}"
-                            st.markdown(f"**{meta}**")
-                            st.markdown(doc.page_content)
+                # Hide references panel per UI feedback (still logged for eval)
 
         try:
             record = build_interaction_record(
