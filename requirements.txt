@@ -5,3 +5,5 @@ langchain-chroma
 langchain-huggingface
 sentence-transformers
 streamlit
+langchain-groq
+python-dotenv

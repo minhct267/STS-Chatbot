@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
 
 from src.config import LOG_DIR, OLLAMA_MODEL_NAME
 from src.logging_utils import INTERACTION_LOG_PATH
@@ -111,7 +111,7 @@ def parse_eval_json(text: str) -> Dict[str, Any]:
 def evaluate_record(
     idx: int,
     record: Dict[str, Any],
-    llm: ChatOllama,
+    llm: ChatGroq,
 ) -> EvalResult:
     prompt = build_eval_prompt(record)
     resp = llm.invoke(prompt)
@@ -178,14 +178,14 @@ def main() -> None:
         "--model",
         type=str,
         default=OLLAMA_MODEL_NAME,
-        help="Ollama model name to use for self-eval (default: same as chat model).",
+        help="Groq model name to use for self-eval (default: same as chat model).",
     )
     args = parser.parse_args()
 
     print(f"Reading logs from: {INTERACTION_LOG_PATH}")
     logs_iter = iter_interaction_logs(INTERACTION_LOG_PATH)
 
-    llm = ChatOllama(model=args.model, temperature=0.0)
+    llm = ChatGroq(model=args.model, temperature=0.0)
 
     processed = 0
     scored = 0
