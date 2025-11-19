@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List
@@ -17,6 +18,24 @@ from src.config import (APP_TITLE, AVAILABLE_OLLAMA_MODELS,
 from src.logging_utils import (build_feedback_record, build_interaction_record,
                                log_feedback, log_interaction)
 from src.rag_chain import answer_question
+
+
+def _init_groq_api_key_from_secrets() -> None:
+    """Configure GROQ_API_KEY from Streamlit secrets when available.
+
+    This allows deployments on Streamlit Community Cloud to manage the Groq
+    API key via .streamlit/secrets.toml or the app settings UI, while keeping
+    local development compatible with environment variables or .env files.
+    """
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY")
+    except Exception:
+        # st.secrets may not be available in some non-Streamlit contexts;
+        # in that case we simply fall back to existing environment settings.
+        api_key = None
+
+    if api_key and not os.environ.get("GROQ_API_KEY"):
+        os.environ["GROQ_API_KEY"] = str(api_key)
 
 
 def init_session_state() -> None:
@@ -138,6 +157,9 @@ def _handle_feedback(feedback_value: str, last: Dict[str, object]) -> None:
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, page_icon="💬", layout="wide")
     st.title(APP_TITLE)
+
+    # Ensure Groq API key is available to ChatGroq instances.
+    _init_groq_api_key_from_secrets()
 
     init_session_state()
     settings = render_sidebar()
