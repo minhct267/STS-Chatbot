@@ -14,7 +14,7 @@ from .config import (CHROMA_COLLECTION_NAME, CHROMA_DIR, EMBEDDING_DEVICE,
 def get_embeddings() -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(
         model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": "cuda"},
+        model_kwargs={"device": "cpu"},
         encode_kwargs={"normalize_embeddings": True},
     )
 

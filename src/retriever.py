@@ -26,7 +26,7 @@ def get_base_retriever():
 
 @lru_cache(maxsize=1)
 def _get_reranker_model() -> CrossEncoder:
-    model = CrossEncoder(RERANKER_MODEL_NAME, device="cuda")
+    model = CrossEncoder(RERANKER_MODEL_NAME, device="cpu")
     return model
 
 
