@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
-import re
 from typing import Dict, List
 from uuid import uuid4
 
@@ -15,8 +15,8 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.config import (APP_TITLE, AVAILABLE_GROQ_MODELS,
                         AVAILABLE_OLLAMA_MODELS, DEFAULT_LLM_PROVIDER,
-                        DEFAULT_TEMPERATURE, MAX_CONTEXT_CHUNKS,
-                        MAX_HISTORY_MESSAGES, GROQ_MODEL_NAME,
+                        DEFAULT_TEMPERATURE, GROQ_MODEL_NAME,
+                        MAX_CONTEXT_CHUNKS, MAX_HISTORY_MESSAGES,
                         OLLAMA_MODEL_NAME, RETRIEVER_K)
 from src.logging_utils import (build_feedback_record, build_interaction_record,
                                log_feedback, log_interaction)
@@ -24,17 +24,9 @@ from src.rag_chain import answer_question
 
 
 def _init_groq_api_key_from_secrets() -> None:
-    """Configure GROQ_API_KEY from Streamlit secrets when available.
-
-    This allows deployments on Streamlit Community Cloud to manage the Groq
-    API key via .streamlit/secrets.toml or the app settings UI, while keeping
-    local development compatible with environment variables or .env files.
-    """
     try:
         api_key = st.secrets.get("GROQ_API_KEY")
     except Exception:
-        # st.secrets may not be available in some non-Streamlit contexts;
-        # in that case we simply fall back to existing environment settings.
         api_key = None
 
     if api_key and not os.environ.get("GROQ_API_KEY"):
@@ -73,9 +65,11 @@ def get_chat_history_text() -> str:
     messages: List[Dict[str, str]] = st.session_state["messages"]
     recent = messages[-MAX_HISTORY_MESSAGES:]
     lines: List[str] = []
+
     for msg in recent:
         role = "User" if msg["role"] == "user" else "Assistant"
         lines.append(f"{role}: {msg['content']}")
+
     return "\n".join(lines)
 
 
@@ -90,12 +84,10 @@ def render_sidebar() -> Dict[str, object]:
             container = st.expander("⚙️ Settings", expanded=False)
 
     with container:
-        # LLM provider
         provider_display = "Groq" if settings.get("provider", "groq") == "groq" else "Ollama"
         provider_display = st.selectbox("LLM provider", ["Groq", "Ollama"], index=0 if provider_display == "Groq" else 1)
         provider = "groq" if provider_display == "Groq" else "ollama"
 
-        # Model list depends on provider
         if provider == "groq":
             options = AVAILABLE_GROQ_MODELS
             label = "Groq model"
@@ -108,14 +100,12 @@ def render_sidebar() -> Dict[str, object]:
             default_index = 0
         model_name = st.selectbox(label, options, index=default_index)
 
-        # Reranker - tickbox
         use_reranker = st.checkbox(
             "BGE reranker",
             value=bool(settings.get("use_reranker", False)),
             help="Higher accuracy, slightly slower",
         )
 
-        # Temperature - sliding
         temperature = st.slider(
             "Temperature",
             min_value=0.0,
@@ -138,17 +128,10 @@ def render_sidebar() -> Dict[str, object]:
 
 
 def _strip_reasoning_text(text: str) -> str:
-    """Remove explicit chain-of-thought / thinking traces from model outputs.
-
-    This targets common patterns like <think>...</think> and fenced blocks
-    ```think ... ``` or ```thinking ... ```. If no patterns are found, the
-    original text is returned unchanged.
-    """
     if not isinstance(text, str) or not text:
         return text
     cleaned = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE)
     cleaned = re.sub(r"```(?:think|thinking)[\s\S]*?```", "", cleaned, flags=re.IGNORECASE)
-    # Trim leftover excessive whitespace
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
     return cleaned or text
 
@@ -195,7 +178,6 @@ def main() -> None:
     st.set_page_config(page_title=APP_TITLE, page_icon="💬", layout="wide", initial_sidebar_state="collapsed")
     st.title(APP_TITLE)
 
-    # Ensure Groq API key is available to ChatGroq instances.
     _init_groq_api_key_from_secrets()
 
     init_session_state()
@@ -226,8 +208,6 @@ def main() -> None:
                 source_docs = result["source_documents"]
 
                 st.markdown(answer)
-
-                # Hide references panel per UI feedback (still logged for eval)
 
         try:
             record = build_interaction_record(

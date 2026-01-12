@@ -7,13 +7,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 
-from .config import (
-    DEFAULT_TEMPERATURE,
-    MAX_CONTEXT_CHUNKS,
-    MIN_RELEVANCE_SCORE_FOR_CONTEXT,
-    GROQ_MODEL_NAME,
-    OLLAMA_MODEL_NAME,
-)
+from .config import (DEFAULT_TEMPERATURE, GROQ_MODEL_NAME, MAX_CONTEXT_CHUNKS,
+                     MIN_RELEVANCE_SCORE_FOR_CONTEXT, OLLAMA_MODEL_NAME)
 from .prompt import get_general_chat_prompt_template, get_rag_prompt_template
 from .retriever import retrieve_documents, retrieve_documents_with_scores
 
@@ -74,19 +69,8 @@ def answer_question(
     provider: str | None = None,
     chat_history: str | None = None,
 ) -> Dict[str, Any]:
-    """Answer a user question, with intelligent fallback when retrieval is weak.
-
-    Behaviour:
-    - If the vector store returns sufficiently relevant documents, we use a
-      document-grounded RAG prompt and include those documents as context.
-    - If no documents are found, or all similarity scores are too low, we fall
-      back to a general chat prompt that answers using broad world knowledge
-      (suitable for small-talk, weather questions, etc.).
-    """
     chat_history_text = chat_history or ""
 
-    # Retrieve documents together with similarity scores so we can decide
-    # whether there is enough signal to trust the context.
     docs, scores = retrieve_documents_with_scores(
         question,
         use_reranker=use_reranker,
@@ -94,9 +78,6 @@ def answer_question(
     max_score = max(scores) if scores else None
 
     has_docs = bool(docs)
-    # If the vector store does not expose scores, we treat the presence of any
-    # documents as a positive retrieval signal. Otherwise we compare against
-    # a configurable similarity threshold.
     has_reliable_context = has_docs and (
         max_score is None or max_score >= MIN_RELEVANCE_SCORE_FOR_CONTEXT
     )
@@ -104,8 +85,6 @@ def answer_question(
     llm = _create_llm(provider, model_name, temperature)
 
     if has_reliable_context:
-        # RAG path: we have reasonably relevant documents, so we build context
-        # and answer purely based on that context (no citations in the text).
         context_text = _format_docs(docs)
         prompt = get_rag_prompt_template()
         chain = prompt | llm | StrOutputParser()
@@ -117,10 +96,6 @@ def answer_question(
         answer: str = chain.invoke(inputs)
         source_docs: List[Document] = docs
     else:
-        # Fallback path: either no docs or similarity scores are too low.
-        # Here we let the model answer as a general-purpose assistant
-        # (small-talk, open-domain questions, etc.), without forcing it
-        # to use document context.
         prompt = get_general_chat_prompt_template()
         chain = prompt | llm | StrOutputParser()
         inputs = {
